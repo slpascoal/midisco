@@ -1,11 +1,12 @@
 package repositories
 
 import (
-	"database/sql"
 	"errors"
 	"log"
 
 	"midisco-api/models"
+
+	"gorm.io/gorm"
 )
 
 type AlbumRepository interface {
@@ -17,91 +18,51 @@ type AlbumRepository interface {
 }
 
 type albumRepository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
-func NewAlbumRepository(db *sql.DB) AlbumRepository {
-	err := createAlbumsTableIfNotExists(db)
-	if err != nil {
-		log.Fatal("Erro ao criar tabela de álbuns:", err)
+func NewAlbumRepository(db *gorm.DB) AlbumRepository {
+	// Auto-migra o schema (cria a tabela se não existir)
+	if err := db.AutoMigrate(&models.Album{}); err != nil {
+		log.Fatal("Erro ao migrar a tabela de álbuns:", err)
 	}
 	return &albumRepository{db: db}
 }
 
-func createAlbumsTableIfNotExists(db *sql.DB) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS albums (
-		id INT AUTO_INCREMENT PRIMARY KEY,
-		title VARCHAR(255) NOT NULL,
-		artist VARCHAR(255) NOT NULL,
-		link VARCHAR(255)
-	);`
-	_, err := db.Exec(query)
-	return err
-}
-
 func (r *albumRepository) GetAll() ([]models.Album, error) {
-	rows, err := r.db.Query("SELECT id, title, artist, link FROM albums")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var albums []models.Album
-	for rows.Next() {
-		var a models.Album
-		if err := rows.Scan(&a.ID, &a.Title, &a.Artist, &a.Link); err != nil {
-			return nil, err
-		}
-		albums = append(albums, a)
-	}
-	return albums, nil
+	result := r.db.Find(&albums)
+	return albums, result.Error
 }
 
 func (r *albumRepository) GetByID(id int) (models.Album, error) {
 	var album models.Album
-	query := "SELECT id, title, artist, link FROM albums WHERE id = ?"
-	err := r.db.QueryRow(query, id).Scan(&album.ID, &album.Title, &album.Artist, &album.Link)
-	if err == sql.ErrNoRows {
+	result := r.db.First(&album, id)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return album, errors.New("album not found")
 	}
-	return album, err
+	return album, result.Error
 }
 
 func (r *albumRepository) Create(album models.Album) error {
-	query := "INSERT INTO albums (title, artist, link) VALUES (?, ?, ?)"
-	_, err := r.db.Exec(query, album.Title, album.Artist, album.Link)
-	return err
+	result := r.db.Create(&album)
+	return result.Error
 }
 
 func (r *albumRepository) Update(album models.Album) error {
-	query := "UPDATE albums SET title = ?, artist = ?, link = ? WHERE id = ?"
-	res, err := r.db.Exec(query, album.Title, album.Artist, album.Link, album.ID)
-	if err != nil {
-		return err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
+	var existing models.Album
+	if err := r.db.First(&existing, album.ID).Error; err != nil {
 		return errors.New("album not found")
 	}
-	return nil
+
+	result := r.db.Model(&existing).Updates(album)
+	return result.Error
 }
 
 func (r *albumRepository) Delete(id int) error {
-	query := "DELETE FROM albums WHERE id = ?"
-	res, err := r.db.Exec(query, id)
-	if err != nil {
-		return err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
+	result := r.db.Delete(&models.Album{}, id)
+	if result.RowsAffected == 0 {
 		return errors.New("album not found")
 	}
-	return nil
+	return result.Error
 }
