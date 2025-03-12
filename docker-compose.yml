@@ -1,0 +1,22 @@
+services:
+  mysql:
+      image: mysql:8
+      container_name: midisco-db
+      env_file:
+        - .env
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${MYSQL_DATABASE}
+      ports:
+        - "3306:3306"
+        
+  midisco-api:
+    container_name: midisco-api
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+    command: ["./main"]
