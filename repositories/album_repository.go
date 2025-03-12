@@ -12,6 +12,8 @@ type AlbumRepository interface {
 	GetAll() ([]models.Album, error)
 	GetByID(id int) (models.Album, error)
 	Create(album models.Album) error
+	Update(album models.Album) error
+	Delete(id int) error
 }
 
 type albumRepository struct {
@@ -70,4 +72,36 @@ func (r *albumRepository) Create(album models.Album) error {
 	query := "INSERT INTO albums (title, artist, link) VALUES (?, ?, ?)"
 	_, err := r.db.Exec(query, album.Title, album.Artist, album.Link)
 	return err
+}
+
+func (r *albumRepository) Update(album models.Album) error {
+	query := "UPDATE albums SET title = ?, artist = ?, link = ? WHERE id = ?"
+	res, err := r.db.Exec(query, album.Title, album.Artist, album.Link, album.ID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("album not found")
+	}
+	return nil
+}
+
+func (r *albumRepository) Delete(id int) error {
+	query := "DELETE FROM albums WHERE id = ?"
+	res, err := r.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("album not found")
+	}
+	return nil
 }

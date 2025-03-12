@@ -37,7 +37,7 @@ func (ac *AlbumController) GetAlbumByID(c *gin.Context) {
 
 	album, err := ac.service.GetAlbumByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "album não encontrado"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Álbum não encontrado"})
 		return
 	}
 	c.JSON(http.StatusOK, album)
@@ -53,5 +53,45 @@ func (ac *AlbumController) CreateAlbum(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, "álbum criado com sucesso")
+	c.JSON(http.StatusCreated, gin.H{"message": "Álbum criado com sucesso"})
+}
+
+func (ac *AlbumController) UpdateAlbum(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	var album models.Album
+	if err := c.ShouldBindJSON(&album); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	album.ID = id
+
+	if err := ac.service.UpdateAlbum(album); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Álbum atualizado com sucesso"})
+}
+
+func (ac *AlbumController) DeleteAlbum(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	if err := ac.service.DeleteAlbum(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Álbum deletado com sucesso"})
 }
